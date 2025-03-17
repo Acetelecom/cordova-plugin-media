@@ -88,11 +88,11 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private String audioFile = null;        // File name to play or record to
     private float duration = -1;            // Duration of audio
 
-    private MediaRecorder recorder = null;  // Audio recording object
+    public MediaRecorder recorder = null;  // Audio recording object
     private LinkedList<String> tempFiles = null; // Temporary recording file name
     private String tempFile = null;
 
-    private MediaPlayer player = null;      // Audio player object
+    public MediaPlayer player = null;      // Audio player object
     private boolean prepareOnly = true;     // playback after file prepare flag
     private int seekOnPrepared = 0;     // seek to this location once media is prepared
     private float setRateOnPrepared = -1;
@@ -170,8 +170,8 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
             this.recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
             this.recorder.setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS); // RAW_AMR);
             this.recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC); //AMR_NB);
-            this.recorder.setAudioEncodingBitRate(96000);
-            this.recorder.setAudioSamplingRate(44100);
+            this.recorder.setAudioEncodingBitRate(12200);
+            this.recorder.setAudioSamplingRate(8000);
             this.tempFile = createAudioFilePath(null);
             this.recorder.setOutputFile(this.tempFile);
             try {
@@ -332,12 +332,42 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
             }
         }
     }
+    /**
+     * Pause recording and save to the file specified when recording started.
+     */
+    public void pauseRecording() {
+        if (this.recorder != null) {
+            try{
+                if (this.state == STATE.MEDIA_RUNNING) {
+                    this.recorder.pause();
+                    LOG.d(LOG_TAG, "pause recording");
+                    this.setState(STATE.MEDIA_PAUSED);
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 
     /**
      * Resume recording and save to the file specified when recording started.
      */
     public void resumeRecording() {
-        startRecording(this.audioFile);
+        if (this.recorder != null) {
+            try{
+                if (this.state == STATE.MEDIA_PAUSED) {
+                    this.recorder.resume();
+                    LOG.d(LOG_TAG, "resume recording");
+                    this.setState(STATE.MEDIA_RUNNING);
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+       // startRecording(this.audioFile);
     }
 
     //==========================================================================
@@ -785,7 +815,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     /**
      * Set the playback rate for the player (ignored on API < 23)
      *
-     * @param volume
+     * @param rate
      */
     public void setRate(float rate) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
