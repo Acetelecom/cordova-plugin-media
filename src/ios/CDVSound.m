@@ -44,6 +44,49 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
             }
         }
     }
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onAudioSessionEvent:) name:AVAudioSessionInterruptionNotification object:nil];
+
+}
+
+- (void) onAudioSessionEvent: (NSNotification *) notification
+{
+    //Check the type of notification, especially if you are sending multiple AVAudioSession events here
+    NSLog(@"Interruption notification name %@", notification.name);
+
+    if ([notification.name isEqualToString:AVAudioSessionInterruptionNotification]) {
+        NSLog(@"Interruption notification received %@!", notification);
+
+        //Check to see if it was a Begin interruption
+        if ([[notification.userInfo valueForKey:AVAudioSessionInterruptionTypeKey] isEqualToNumber:[NSNumber numberWithInt:AVAudioSessionInterruptionTypeBegan]]) {
+            NSLog(@"Interruption began!");
+            for(NSString* mediaId in soundCache) {
+                CDVAudioFile* audioFile = [soundCache objectForKey:mediaId];
+                if (audioFile.player && [audioFile.player isPlaying]) {
+
+                    NSLog(@"no Paused playing audio sample '%@'", audioFile.resourcePath);
+                    /*if (audioFile.player != nil) {
+                        [audioFile.player pause];
+                    } else if (avPlayer != nil) {
+                        [avPlayer pause];
+                    }*/
+
+                    [self onStatus:MEDIA_STATE mediaId:mediaId param:@(MEDIA_PAUSED)];
+                }
+                if (audioFile.recorder && [audioFile.recorder isRecording]) {
+                    NSLog(@"Paused recording audio sample '%@'", audioFile.resourcePath);
+                    [audioFile.recorder pause];
+                    // no callback - that will happen in audioRecorderDidFinishRecording
+                    [self onStatus:MEDIA_STATE mediaId:mediaId param:@(MEDIA_PAUSED)];
+
+                }
+            }
+
+        } else if([[notification.userInfo valueForKey:AVAudioSessionInterruptionTypeKey] isEqualToNumber:[NSNumber numberWithInt:AVAudioSessionInterruptionTypeEnded]]){
+            NSLog(@"Interruption ended!");
+            //Resume your audio
+
+        }
+    }
 }
 
 // Maps a url for a resource path for recording
@@ -447,7 +490,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
                     CMTime time = avPlayer.currentItem.asset.duration;
                     duration = CMTimeGetSeconds(time);
                     if (isnan(duration)) {
-                        NSLog(@"Duration is infinite, setting it to -1");
+                        NSLog(@"Duration is infifnite, setting it to -1");
                         duration = -1;
                     }
 
@@ -764,7 +807,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
             // create a new recorder for each start record
             bool isWav=[[audioFile.resourcePath pathExtension] isEqualToString:@"wav"];
             NSMutableDictionary *audioSettings = [NSMutableDictionary dictionaryWithDictionary:
-                                            @{AVSampleRateKey: @(44100),
+                                            @{AVSampleRateKey: @(8000),
                                              AVNumberOfChannelsKey: @(1),
                                              }];
             if (isWav)  {
@@ -915,7 +958,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
 {
     /* https://issues.apache.org/jira/browse/CB-11513 */
     NSMutableArray* keysToRemove = [[NSMutableArray alloc] init];
-    
+
     for(id key in [self soundCache]) {
         CDVAudioFile* audioFile = [[self soundCache] objectForKey:key];
         if (audioFile != nil) {
@@ -927,9 +970,9 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
             }
         }
     }
-    
+
     [[self soundCache] removeObjectsForKeys:keysToRemove];
-    
+
     // [[self soundCache] removeAllObjects];
     // [self setSoundCache:nil];
     [self setAvSession:nil];
@@ -989,6 +1032,8 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
     CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:amplitude];
     [self.commandDelegate sendPluginResult:result callbackId:callbackId];
  }
+
+
 
  - (void)resumeRecordingAudio:(CDVInvokedUrlCommand*)command
   {
